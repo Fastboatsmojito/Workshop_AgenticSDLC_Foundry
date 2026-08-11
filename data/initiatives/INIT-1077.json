@@ -1,0 +1,14 @@
+{
+  "id": "INIT-1077",
+  "title": "Self-service policy document retrieval",
+  "business_need": "Policyholders call the contact centre to request copies of their policy documents, declarations pages, and proof of insurance. These calls are short but numerous and carry no judgement. We want customers to retrieve their own documents from the existing customer portal.",
+  "requester": "Director, Customer Experience",
+  "constraints": [
+    "Uses the existing customer portal and its current authentication.",
+    "Documents are held in the existing document management system and must not be duplicated."
+  ],
+  "success_measures": [
+    "Document request call volume falls by half within two quarters.",
+    "Customers retrieve a document in under 30 seconds from sign-in."
+  ]
+}

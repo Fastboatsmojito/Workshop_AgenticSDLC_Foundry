@@ -1,0 +1,183 @@
+{
+  "initiative_id": "INIT-1042",
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "title": "Eligibility assessment",
+      "outcome": "Every incoming auto claim receives a recorded, versioned eligibility outcome."
+    },
+    {
+      "id": "EPIC-002",
+      "title": "Automated settlement",
+      "outcome": "Eligible claims settle through the existing payments service and close in intake without an adjuster."
+    },
+    {
+      "id": "EPIC-003",
+      "title": "Decision record, explanation, and adjuster override",
+      "outcome": "Every automated decision is explainable, reconstructable, and reversible by an adjuster."
+    }
+  ],
+  "stories": [
+    {
+      "id": "STORY-001",
+      "epic_id": "EPIC-001",
+      "title": "Versioned rule set store",
+      "description": "Persist eligibility rule sets as immutable versions, with the active version selectable and prior versions retrievable by id.",
+      "acceptance_criteria": [
+        "Publishing a rule set creates a new version and leaves prior versions unchanged.",
+        "The active version is resolvable at assessment time.",
+        "A prior version is retrievable by id for reconstruction."
+      ],
+      "estimate_points": 5,
+      "depends_on": []
+    },
+    {
+      "id": "STORY-002",
+      "epic_id": "EPIC-001",
+      "title": "Evaluate a claim against the active rule set",
+      "description": "Consume claim-received, evaluate against the active rule set, and emit an assessment carrying the outcome, the determining factors, and the rule set version.",
+      "acceptance_criteria": [
+        "A claim meeting all conditions is assessed eligible with the rule set version recorded.",
+        "A claim failing a condition is assessed not-eligible with the failing condition named.",
+        "The assessment is written to the decision store before the event is emitted."
+      ],
+      "estimate_points": 8,
+      "depends_on": [
+        "STORY-001",
+        "STORY-005"
+      ]
+    },
+    {
+      "id": "STORY-003",
+      "epic_id": "EPIC-002",
+      "title": "Instruct payment for an eligible claim",
+      "description": "Call the existing payments service with an idempotency key derived from claim id and assessment id, and record the instruction.",
+      "acceptance_criteria": [
+        "An eligible assessment produces exactly one payment instruction.",
+        "Replaying the same assessment produces no second instruction.",
+        "The instruction and its acknowledgement are recorded in the decision store."
+      ],
+      "estimate_points": 8,
+      "depends_on": [
+        "STORY-002"
+      ]
+    },
+    {
+      "id": "STORY-004",
+      "epic_id": "EPIC-002",
+      "title": "Close the claim in intake, or route to an adjuster",
+      "description": "On acknowledgement, write closure back to the intake system. On exhausted retries or an error, route the claim to the existing adjuster queue with the reason attached.",
+      "acceptance_criteria": [
+        "An acknowledged payment closes the claim in intake with amount and timestamp.",
+        "An exhausted retry allowance queues the claim for an adjuster and leaves it open.",
+        "No claim is both queued and settled."
+      ],
+      "estimate_points": 5,
+      "depends_on": [
+        "STORY-003"
+      ]
+    },
+    {
+      "id": "STORY-005",
+      "epic_id": "EPIC-003",
+      "title": "Append-only decision store",
+      "description": "Write-once store for assessments, settlements, explanations, and overrides, with retrieval by claim id.",
+      "acceptance_criteria": [
+        "A written record cannot be updated or deleted; attempts are rejected and logged.",
+        "All records for a claim are retrievable in order.",
+        "Records carry the rule set version and the identity that produced them."
+      ],
+      "estimate_points": 8,
+      "depends_on": []
+    },
+    {
+      "id": "STORY-006",
+      "epic_id": "EPIC-003",
+      "title": "Customer-facing explanation",
+      "description": "Render the determining factors from an assessment into non-technical language using a deterministic template.",
+      "acceptance_criteria": [
+        "Every automated decision has an explanation naming each determining factor.",
+        "The explanation for a closed claim matches the decision as originally made."
+      ],
+      "estimate_points": 3,
+      "depends_on": [
+        "STORY-002",
+        "STORY-005"
+      ]
+    },
+    {
+      "id": "STORY-007",
+      "epic_id": "EPIC-003",
+      "title": "Adjuster review and override",
+      "description": "Show the decision, inputs, rule set version, and explanation to an adjuster, and accept an override with a mandatory reason recorded as a new decision record.",
+      "acceptance_criteria": [
+        "An adjuster can see the inputs and rule set version behind any automated decision.",
+        "An override without a reason is rejected.",
+        "An override is written as a new record and the original is retained.",
+        "A user without the adjuster role cannot override, and the attempt is logged."
+      ],
+      "estimate_points": 8,
+      "depends_on": [
+        "STORY-005",
+        "STORY-006"
+      ]
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TEST-001",
+      "story_id": "STORY-001",
+      "given_when_then": "Given an active rule set v3, when v4 is published, then v3 remains retrievable by id and unchanged.",
+      "kind": "unit"
+    },
+    {
+      "id": "TEST-002",
+      "story_id": "STORY-002",
+      "given_when_then": "Given a claim below threshold with no injury flag, when it is evaluated, then the outcome is eligible and the rule set version is recorded on the assessment.",
+      "kind": "integration"
+    },
+    {
+      "id": "TEST-003",
+      "story_id": "STORY-002",
+      "given_when_then": "Given a claim with an injury flag, when it is evaluated, then the outcome is not-eligible and the injury condition is named as the failing condition.",
+      "kind": "unit"
+    },
+    {
+      "id": "TEST-004",
+      "story_id": "STORY-003",
+      "given_when_then": "Given an assessment already settled, when the same assessment is replayed, then no second payment instruction is issued.",
+      "kind": "integration"
+    },
+    {
+      "id": "TEST-005",
+      "story_id": "STORY-004",
+      "given_when_then": "Given the payments service is unavailable, when settlement is attempted until retries are exhausted, then the claim appears in the adjuster queue and remains open.",
+      "kind": "integration"
+    },
+    {
+      "id": "TEST-006",
+      "story_id": "STORY-005",
+      "given_when_then": "Given a written decision record, when an update is attempted, then it is rejected and the attempt is logged.",
+      "kind": "unit"
+    },
+    {
+      "id": "TEST-007",
+      "story_id": "STORY-007",
+      "given_when_then": "Given a settled claim, when an adjuster overrides with a reason, then a new record is written, the original is retained, and the claim reflects the override.",
+      "kind": "e2e"
+    },
+    {
+      "id": "TEST-008",
+      "story_id": "STORY-007",
+      "given_when_then": "Given a user without the adjuster role, when they attempt an override, then it is denied and the attempt is logged.",
+      "kind": "integration"
+    }
+  ],
+  "sequencing_notes": [
+    "STORY-001 and STORY-005 have no dependencies and unblock everything else; start both.",
+    "STORY-002 needs the decision store before it can record an assessment, so it follows STORY-005 rather than running beside it.",
+    "STORY-003 and STORY-004 are the only stories that touch money; keep them in one pair's hands and review them together.",
+    "STORY-007 is last because it needs real records to review, and it is the story most likely to change after adjusters see it.",
+    "The initial rule set content is blocked on the eligibility threshold open question. Every story above is buildable without it; only the authored rules are blocked."
+  ]
+}

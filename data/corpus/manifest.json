@@ -1,0 +1,33 @@
+{
+  "description": "Governance corpus for the Agentic SDLC workshop. Fictional but representative of a regulated delivery organisation. doc_type controls which agent may retrieve a document.",
+  "documents": [
+    {
+      "file": "definition-of-ready.md",
+      "doc_id": "DOR-CHECKLIST",
+      "title": "Definition of Ready",
+      "doc_type": "dor",
+      "retrieved_by": ["RequirementsAgent"]
+    },
+    {
+      "file": "delivery-standards.md",
+      "doc_id": "DELIVERY-STANDARDS",
+      "title": "Delivery Standards",
+      "doc_type": "standards",
+      "retrieved_by": ["RequirementsAgent", "WorkBreakdownAgent"]
+    },
+    {
+      "file": "architecture-standards.md",
+      "doc_id": "ARCH-STANDARDS",
+      "title": "Architecture Standards",
+      "doc_type": "architecture",
+      "retrieved_by": ["DesignAgent"]
+    },
+    {
+      "file": "design-format.md",
+      "doc_id": "DESIGN-FORMAT",
+      "title": "Design Format",
+      "doc_type": "design_format",
+      "retrieved_by": ["DesignAgent"]
+    }
+  ]
+}

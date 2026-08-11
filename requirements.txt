@@ -1,0 +1,28 @@
+# Agentic SDLC on Microsoft Foundry - workshop dependencies
+# Python 3.11+ required (agent-framework requires 3.11 or newer).
+
+# --- Agent Framework + Foundry provider ---
+# Use the selective packages: the agent-framework meta-package installs every
+# optional integration and currently constrains the MCP SDK to its 1.x API.
+agent-framework-core>=1.13,<2
+agent-framework-foundry>=1.10,<2
+
+# --- Azure ---
+azure-identity>=1.19
+azure-search-documents>=11.6.0
+azure-core>=1.32
+
+# --- MCP (mock systems of record) ---
+# Agent Framework 1.x uses the MCP 1.x ClientSession API. Keep the upper bound
+# until Agent Framework publishes MCP 2 support and this repository migrates.
+mcp>=1.29,<2
+
+# --- Core ---
+pydantic>=2.9
+python-dotenv>=1.0
+rich>=13.9
+
+# --- Dev / verification ---
+pytest>=8.3
+pytest-asyncio>=0.24
+ruff>=0.8

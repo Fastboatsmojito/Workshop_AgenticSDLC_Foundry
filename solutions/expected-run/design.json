@@ -1,0 +1,126 @@
+{
+  "initiative_id": "INIT-1042",
+  "overview": "Claims arrive in the existing intake system, which remains the system of record. An eligibility service subscribes to claim-received events, evaluates the claim against a versioned rule set, and emits an assessment. Eligible claims go to a settlement service that instructs the existing payments service and writes the closure back to intake. Anything not eligible, and anything that errors, is routed to the adjuster queue that exists today. Every assessment and settlement is written to an append-only decision store that also serves the adjuster review and override path. No component replaces an existing system; the design adds an automated lane beside the manual one and falls back to it.",
+  "components": [
+    {
+      "name": "Eligibility Service",
+      "responsibility": "Evaluates a claim against the active rule set version and emits an assessment with the outcome, the factors that determined it, and the rule set version applied. Stateless; the rule set is loaded from the rule set store.",
+      "depends_on": [
+        "Claims Intake (existing)",
+        "Rule Set Store",
+        "Decision Store"
+      ]
+    },
+    {
+      "name": "Rule Set Store",
+      "responsibility": "Holds versioned, immutable eligibility rule sets. A change publishes a new version rather than mutating the active one, so historical assessments stay reconstructable.",
+      "depends_on": []
+    },
+    {
+      "name": "Settlement Orchestrator",
+      "responsibility": "Drives an eligible claim to closure: instructs the payments service, waits for acknowledgement, writes closure back to intake, and routes to the adjuster queue when any step fails. Owns the idempotency key so a retry cannot double-pay.",
+      "depends_on": [
+        "Payments Service (existing)",
+        "Claims Intake (existing)",
+        "Decision Store",
+        "Adjuster Queue (existing)"
+      ]
+    },
+    {
+      "name": "Decision Store",
+      "responsibility": "Append-only record of every assessment, settlement, explanation, and override. Written once, never updated. Serves the adjuster review view and the retention obligation.",
+      "depends_on": []
+    },
+    {
+      "name": "Explanation Generator",
+      "responsibility": "Renders the factors from an assessment into customer-facing language. Deterministic template over the recorded factors, so the explanation cannot drift from the decision it describes.",
+      "depends_on": [
+        "Decision Store"
+      ]
+    },
+    {
+      "name": "Adjuster Review View",
+      "responsibility": "Shows an adjuster the decision, its inputs, the rule set version, and the explanation, and accepts an override with a mandatory reason. Writes the override as a new decision record rather than editing the original.",
+      "depends_on": [
+        "Decision Store",
+        "Claims Intake (existing)"
+      ]
+    }
+  ],
+  "data_flows": [
+    "Claims Intake emits claim-received; Eligibility Service consumes it, evaluates against the active rule set, writes the assessment to the Decision Store, and emits assessment-completed.",
+    "Settlement Orchestrator consumes assessment-completed where the outcome is eligible, calls the Payments Service with an idempotency key derived from the claim id and assessment id, and on acknowledgement writes closure to Claims Intake and a settlement record to the Decision Store.",
+    "Assessments that are not eligible, and settlement attempts that exhaust their retry allowance, are published to the existing Adjuster Queue with the failing condition or failure reason attached.",
+    "Adjuster Review View reads from the Decision Store; an override writes a new decision record referencing the original and updates the claim in Claims Intake.",
+    "All personal information stays within in-country stores; events carry claim identifiers rather than claimant detail."
+  ],
+  "decisions": [
+    {
+      "decision": "Evaluate eligibility with an explicit versioned rule set rather than a learned model.",
+      "rationale": "FR-05 and DoR-06 require an explanation naming the factors that determined the outcome, and NFR-02 requires the decision to be reconstructable years later. A rule set gives both by construction. It also gives operations a control surface they can reason about when tuning the eligible share towards the 40 percent measure.",
+      "alternatives_considered": [
+        "Trained classifier with feature attribution: better ceiling on eligible volume, but explanation quality becomes a modelling problem and retraining breaks reconstructability.",
+        "Adjuster-defined heuristics held in the intake system: no new component, but no versioning and no decision record."
+      ]
+    },
+    {
+      "decision": "Add an automated lane alongside the existing manual path rather than modifying the intake system.",
+      "rationale": "The requester named intake as the unchangeable system of record. Keeping the manual path intact also makes the failure mode trivial: when anything in the automated lane is unavailable, claims follow the path they follow today, satisfying NFR-04.",
+      "alternatives_considered": [
+        "Extend the intake system directly: fewer moving parts, but violates a stated constraint and couples release cadence to the system of record."
+      ]
+    },
+    {
+      "decision": "Make the Decision Store append-only, with overrides recorded as new entries referencing the original.",
+      "rationale": "NFR-02 requires records that cannot be altered after the fact, and FR-04 requires the original decision to survive an override. One property gives both, and it removes the question of who may edit history.",
+      "alternatives_considered": [
+        "Mutable records with an audit column: familiar, but the audit trail then depends on application code being correct forever."
+      ]
+    },
+    {
+      "decision": "Derive the payments idempotency key from claim id plus assessment id and own it in the Settlement Orchestrator.",
+      "rationale": "The only unrecoverable failure in this design is paying twice. Binding the key to the assessment means a retry of the same decision is idempotent while a genuinely new assessment is not.",
+      "alternatives_considered": [
+        "Rely on the payments service to deduplicate: outside our control and untestable from here."
+      ]
+    }
+  ],
+  "risks": [
+    "The eligibility threshold is still an open question from requirements. The rule set store and its schema can be built without it, but the initial rule set cannot be authored, and the 40 percent measure cannot be forecast.",
+    "The retry allowance in the Settlement Orchestrator trades settlement latency against adjuster queue volume; the value needs an operational decision before load testing means anything.",
+    "The existing payments service acknowledgement semantics are assumed to be synchronous. If acknowledgement is asynchronous, the Settlement Orchestrator needs a reconciliation path and this design understates its complexity.",
+    "Explanation quality is only as good as the factor names in the rule set. Poorly named conditions produce technically correct explanations that no customer can act on."
+  ],
+  "citations": [
+    {
+      "doc_id": "ARCH-STANDARDS",
+      "title": "Architecture Standards",
+      "section": "ARC-03 Data residency",
+      "doc_type": "architecture"
+    },
+    {
+      "doc_id": "ARCH-STANDARDS",
+      "title": "Architecture Standards",
+      "section": "ARC-05 Auditability of automated decisions",
+      "doc_type": "architecture"
+    },
+    {
+      "doc_id": "ARCH-STANDARDS",
+      "title": "Architecture Standards",
+      "section": "ARC-06 Integration style",
+      "doc_type": "architecture"
+    },
+    {
+      "doc_id": "ARCH-STANDARDS",
+      "title": "Architecture Standards",
+      "section": "ARC-07 Degradation",
+      "doc_type": "architecture"
+    },
+    {
+      "doc_id": "DESIGN-FORMAT",
+      "title": "Design Format",
+      "section": "FMT-04 Decisions",
+      "doc_type": "design_format"
+    }
+  ]
+}

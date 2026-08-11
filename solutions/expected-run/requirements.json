@@ -1,0 +1,198 @@
+{
+  "initiative_id": "INIT-1042",
+  "title": "Straight-through processing for low-risk auto claims",
+  "functional": [
+    {
+      "id": "FR-01",
+      "statement": "The system evaluates every incoming auto claim against a published eligibility rule set and records an eligible or not-eligible outcome with the identifier and version of the rule set applied.",
+      "rationale": "Straight-through processing only applies to a defined subset of claims, and which subset must be reconstructable after the fact.",
+      "acceptance_criteria": [
+        "Given a claim meeting every eligibility condition, when it is evaluated, then the outcome is eligible and the rule set version is recorded.",
+        "Given a claim failing any single condition, when it is evaluated, then the outcome is not-eligible and the failing condition is named.",
+        "Given a rule set version change, when a previously evaluated claim is re-examined, then the original evaluation retains the version applied at the time."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "FR-02",
+      "statement": "An eligible claim is settled without adjuster involvement by instructing the existing payments service, and the claim is closed in the intake system of record.",
+      "rationale": "The measured outcome is settlement time, which is only reduced when the path completes end to end without a manual step.",
+      "acceptance_criteria": [
+        "Given an eligible claim, when automated settlement runs, then a payment instruction is issued to the payments service and no adjuster task is created.",
+        "Given a successful payment instruction, when it is acknowledged, then the claim is closed in the intake system with the settlement amount and timestamp.",
+        "Given a payment instruction that fails or is not acknowledged, when the retry allowance is exhausted, then the claim is routed to an adjuster and remains open."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "FR-03",
+      "statement": "A claim that is not eligible, or whose automated assessment cannot be completed, is routed to the existing adjuster queue with the reason attached.",
+      "rationale": "The initiative removes routine work from the queue; it must not remove claims from the queue that still need judgement.",
+      "acceptance_criteria": [
+        "Given a not-eligible claim, when routing runs, then it appears in the adjuster queue with the failing condition visible.",
+        "Given an assessment that errors, when routing runs, then the claim is queued for an adjuster rather than retried indefinitely or dropped."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "FR-04",
+      "statement": "An adjuster can review any automated settlement decision and override it, and the override is recorded with the adjuster identity, timestamp, and stated reason.",
+      "rationale": "Named constraint from the requester, and the control that makes automated settlement acceptable to operations.",
+      "acceptance_criteria": [
+        "Given a settled claim, when an adjuster opens it, then the decision, the inputs used, and the rule set version are visible.",
+        "Given an adjuster override, when it is submitted, then the original decision is retained alongside the override rather than replaced.",
+        "Given an override with no stated reason, when it is submitted, then it is rejected."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "FR-05",
+      "statement": "Every automated decision produces a customer-facing explanation naming the factors that determined the outcome.",
+      "rationale": "DoR-06 requires automated decisions affecting a customer outcome to carry an explainability obligation stated as a requirement.",
+      "acceptance_criteria": [
+        "Given an automated settlement, when the explanation is generated, then it names each factor that determined the outcome in non-technical language.",
+        "Given an explanation, when it is retrieved for a closed claim, then it matches the decision as originally made."
+      ],
+      "priority": "must"
+    }
+  ],
+  "non_functional": [
+    {
+      "id": "NFR-01",
+      "statement": "Claims data and customer personal information are stored and processed only in the country of operation, including backups and logs.",
+      "rationale": "Named constraint from the requester; DoR-05 data handling.",
+      "acceptance_criteria": [
+        "Given every service and store in the solution, when their regions are inspected, then all are in-country.",
+        "Given diagnostic logs, when inspected, then they contain no customer personal information."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "NFR-02",
+      "statement": "Each automated decision retains its inputs, the rule set version, the outcome, and the explanation for the statutory retention period, in a form that cannot be altered after the fact.",
+      "rationale": "DoR-05 auditability; a decision that cannot be reconstructed cannot be defended.",
+      "acceptance_criteria": [
+        "Given a decision recorded 24 months ago, when it is retrieved, then inputs, rule set version, outcome, and explanation are all present.",
+        "Given an attempt to modify a recorded decision, when it is made, then it is rejected and the attempt is logged."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "NFR-03",
+      "statement": "Eligibility assessment completes within 5 seconds at the 95th percentile for the expected daily volume.",
+      "rationale": "DoR-04 requires a threshold; a settlement path with no latency bound cannot be tested.",
+      "acceptance_criteria": [
+        "Given expected peak daily volume, when load is applied, then p95 assessment latency is at or below 5 seconds."
+      ],
+      "priority": "should"
+    },
+    {
+      "id": "NFR-04",
+      "statement": "When the eligibility service or the payments service is unavailable, claims are routed to adjusters and no claim is left in an indeterminate state.",
+      "rationale": "DoR-05 degradation behaviour; the safe failure mode is the path that exists today.",
+      "acceptance_criteria": [
+        "Given the payments service is unavailable, when claims arrive, then they are queued for adjusters and remain open.",
+        "Given recovery, when the service returns, then no claim has been both queued and settled."
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "NFR-05",
+      "statement": "Only holders of the adjuster role may override an automated decision, and only holders of the rules administrator role may change the rule set.",
+      "rationale": "DoR-05 access control; the rule set is the control surface for the whole capability.",
+      "acceptance_criteria": [
+        "Given a user without the adjuster role, when they attempt an override, then it is denied and logged.",
+        "Given a rule set change, when it is submitted, then the submitting identity and the prior version are recorded."
+      ],
+      "priority": "must"
+    }
+  ],
+  "definition_of_ready": {
+    "checks": [
+      {
+        "name": "DoR-01 Business outcome is stated",
+        "passed": true,
+        "note": "Outcome stated as faster settlement on simple claims and fewer routine items in the adjuster queue, not as a proposed solution."
+      },
+      {
+        "name": "DoR-02 Success is measurable",
+        "passed": true,
+        "note": "Median settlement time 6 days to under 1 day; 40 percent straight-through within two quarters; no increase in reopened settlements. All have direction and baseline."
+      },
+      {
+        "name": "DoR-03 Scope boundaries are explicit",
+        "passed": false,
+        "note": "In scope is clear. Exclusions are not stated: whether claim types beyond auto, and whether partial settlements, are excluded is unrecorded. Owner: VP Claims Operations."
+      },
+      {
+        "name": "DoR-04 Every requirement is individually testable",
+        "passed": true,
+        "note": "Each requirement carries given-when-then acceptance criteria; the latency requirement carries a threshold rather than 'fast'."
+      },
+      {
+        "name": "DoR-05 Non-functional requirements are covered",
+        "passed": true,
+        "note": "Data handling NFR-01, auditability NFR-02, performance NFR-03, availability NFR-04, access control NFR-05."
+      },
+      {
+        "name": "DoR-06 Regulatory and compliance obligations are identified",
+        "passed": true,
+        "note": "Automated decisions affect a customer outcome, so the explainability obligation is stated as FR-05 rather than left as context. Data residency stated as NFR-01."
+      },
+      {
+        "name": "DoR-07 Dependencies and assumptions are recorded",
+        "passed": true,
+        "note": "Depends on the claims intake system as system of record and the existing payments service, both named as constraints. Assumes the current adjuster queue is reusable."
+      },
+      {
+        "name": "DoR-08 Open questions are listed, not resolved by assumption",
+        "passed": false,
+        "note": "The eligibility threshold is unknown and is recorded as an open question rather than assumed, but the retention period is also unconfirmed and needs an owner named."
+      }
+    ]
+  },
+  "citations": [
+    {
+      "doc_id": "DOR-CHECKLIST",
+      "title": "Definition of Ready",
+      "section": "DoR-04 Every requirement is individually testable",
+      "doc_type": "dor"
+    },
+    {
+      "doc_id": "DOR-CHECKLIST",
+      "title": "Definition of Ready",
+      "section": "DoR-05 Non-functional requirements are covered",
+      "doc_type": "dor"
+    },
+    {
+      "doc_id": "DOR-CHECKLIST",
+      "title": "Definition of Ready",
+      "section": "DoR-06 Regulatory and compliance obligations are identified",
+      "doc_type": "dor"
+    },
+    {
+      "doc_id": "DELIVERY-STANDARDS",
+      "title": "Delivery Standards",
+      "section": "STD-04 Acceptance criteria",
+      "doc_type": "standards"
+    },
+    {
+      "doc_id": "DELIVERY-STANDARDS",
+      "title": "Delivery Standards",
+      "section": "STD-06 Automated decisions",
+      "doc_type": "standards"
+    },
+    {
+      "doc_id": "DELIVERY-STANDARDS",
+      "title": "Delivery Standards",
+      "section": "STD-08 Audit records",
+      "doc_type": "standards"
+    }
+  ],
+  "open_questions": [
+    "What claim value and complexity define 'low risk'? The requester says 'below a modest value' without a figure, and the eligibility rule set cannot be written without it. Owner: VP Claims Operations.",
+    "What is the statutory retention period for automated decision records in the country of operation? NFR-02 states the obligation but not the duration. Owner: Compliance.",
+    "Are partial settlements in scope, or only claims settled in full? Affects FR-02 and the payments integration.",
+    "Does an automated settlement require customer acceptance before payment is issued, or is notification sufficient?"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "INIT-1042",
+  "title": "Straight-through processing for low-risk auto claims",
+  "business_need": "Low-complexity auto claims below a modest value currently follow the same manual adjudication path as complex ones. Adjusters spend a large share of their time on claims that almost never require judgement, while genuinely complex claims wait behind them. We want low-risk claims to be assessed and settled without an adjuster touching them, while anything that looks unusual continues to a human as it does today. Customers should see a faster settlement on simple claims, and adjusters should see fewer routine items in their queue.",
+  "requester": "VP Claims Operations",
+  "constraints": [
+    "Claims data and customer personal information must remain within the country of operation.",
+    "An adjuster must be able to review and override any automated settlement decision.",
+    "The existing claims intake system remains the system of record and cannot be replaced in this initiative.",
+    "Must integrate with the current payments service rather than issuing payments directly."
+  ],
+  "success_measures": [
+    "Median settlement time for eligible claims drops from 6 days to under 1 day.",
+    "At least 40 percent of eligible claims settle without adjuster involvement within two quarters.",
+    "No increase in the rate of settlements later reopened or disputed."
+  ]
+}
